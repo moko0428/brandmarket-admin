@@ -14,7 +14,11 @@ export default defineConfig({
     !isDev &&
       VitePWA({
         registerType: 'autoUpdate',
-        includeAssets: ['favicon.svg', 'icon-192x192.png', 'icon-512x512.png'],
+        includeAssets: [
+          'favicon.svg',
+          'brand_market_192x192.png',
+          'brand_market_512x512.png',
+        ],
         manifest: {
           name: 'brandmarket-admin',
           short_name: 'bm-admin',
