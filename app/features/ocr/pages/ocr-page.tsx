@@ -8,30 +8,30 @@ export default function CameraPage() {
   const [capturedImage, setCapturedImage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
+  const [userAgent, setUserAgent] = useState<string>('');
 
-  // ✅ 모바일 디바이스 여부 확인
+  // 모바일 여부 체크
   const isMobile =
     typeof navigator !== 'undefined' &&
     /Mobi|Android|iPhone|iPad/i.test(navigator.userAgent);
 
   useEffect(() => {
-    console.log('isMobile:', isMobile);
-    console.log('navigator.userAgent:', navigator.userAgent);
+    // userAgent 상태로 저장 (UI에 표시할 용도)
+    if (typeof navigator !== 'undefined') {
+      setUserAgent(navigator.userAgent);
+    }
 
     async function startCamera() {
       try {
         const stream = await navigator.mediaDevices.getUserMedia({
           video: { facingMode: 'environment' },
         });
-        console.log('stream:', stream);
 
         if (videoRef.current) {
           videoRef.current.srcObject = stream;
-          console.log('video element:', videoRef.current);
           setHasCamera(true);
         }
       } catch (err) {
-        console.error('getUserMedia error:', err);
         setError('카메라 권한이 없거나 사용할 수 없습니다.');
       } finally {
         setLoading(false);
@@ -39,6 +39,14 @@ export default function CameraPage() {
     }
 
     startCamera();
+
+    return () => {
+      const video = videoRef.current;
+      if (video?.srcObject) {
+        const tracks = (video.srcObject as MediaStream).getTracks();
+        tracks.forEach((track) => track.stop());
+      }
+    };
   }, []);
 
   const capturePhoto = () => {
@@ -54,13 +62,19 @@ export default function CameraPage() {
     ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
 
     const imageUrl = canvas.toDataURL('image/png');
-    console.log(imageUrl);
     setCapturedImage(imageUrl);
   };
 
   return (
     <main className="flex flex-col items-center p-4 h-full">
       <h1 className="text-2xl font-bold mb-4">카메라 촬영</h1>
+
+      <section className="mb-4 w-full max-w-md rounded-md border border-gray-300 p-2 bg-gray-50">
+        <h2 className="font-semibold mb-1">User Agent 정보</h2>
+        <p className="text-sm break-words">
+          {userAgent || '정보를 불러오는 중...'}
+        </p>
+      </section>
 
       {!isMobile && (
         <p className="text-blue-600 mb-2">현재 브라우저 환경 상태입니다</p>
