@@ -10,13 +10,7 @@ export default function CameraPage() {
   const [loading, setLoading] = useState(true);
   const [userAgent, setUserAgent] = useState<string>('');
 
-  // 모바일 여부 체크
-  const isMobile =
-    typeof navigator !== 'undefined' &&
-    /Mobi|Android|iPhone|iPad/i.test(navigator.userAgent);
-
   useEffect(() => {
-    // userAgent 상태로 저장 (UI에 표시할 용도)
     if (typeof navigator !== 'undefined') {
       setUserAgent(navigator.userAgent);
     }
@@ -24,7 +18,7 @@ export default function CameraPage() {
     async function startCamera() {
       try {
         const stream = await navigator.mediaDevices.getUserMedia({
-          video: { facingMode: 'environment' },
+          video: { facingMode: 'environment' }, // 후면 카메라 요청
         });
 
         if (videoRef.current) {
@@ -76,9 +70,8 @@ export default function CameraPage() {
         </p>
       </section>
 
-      {!isMobile && (
-        <p className="text-blue-600 mb-2">현재 브라우저 환경 상태입니다</p>
-      )}
+      {/* 모바일 여부와 관계없이 항상 메시지 출력 */}
+      <p className="text-blue-600 mb-2">현재 브라우저 환경 상태입니다</p>
 
       {loading && <p>카메라를 준비 중입니다...</p>}
       {error && <p className="text-red-600 mb-2">{error}</p>}
