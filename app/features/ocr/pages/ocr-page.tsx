@@ -7,45 +7,27 @@ export default function CameraPage() {
   const [hasCamera, setHasCamera] = useState(false);
   const [capturedImage, setCapturedImage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [userAgent, setUserAgent] = useState<string>('');
 
   useEffect(() => {
-    if (typeof navigator !== 'undefined') {
-      setUserAgent(navigator.userAgent);
-    }
-
     async function startCamera() {
       try {
-        const constraints = {
-          video: { facingMode: 'environment' }, // 모바일용 후면 카메라 우선
-        };
-
-        // 데스크탑일 경우 facingMode 제거
-        if (!/Mobi|Android|iPhone|iPad/i.test(navigator.userAgent)) {
-          constraints.video = { facingMode: 'environment' };
-        }
-
-        const stream = await navigator.mediaDevices.getUserMedia(constraints);
-
+        const stream = await navigator.mediaDevices.getUserMedia({
+          video: { facingMode: 'environment' },
+        });
         if (videoRef.current) {
           videoRef.current.srcObject = stream;
-          await videoRef.current.play(); // play() 명시적으로 호출
           setHasCamera(true);
         }
       } catch (err) {
         setError('카메라 권한이 없거나 사용할 수 없습니다.');
-      } finally {
-        setLoading(false);
+        console.error(err);
       }
     }
-
     startCamera();
 
     return () => {
-      const video = videoRef.current;
-      if (video?.srcObject) {
-        const tracks = (video.srcObject as MediaStream).getTracks();
+      if (videoRef.current?.srcObject) {
+        const tracks = (videoRef.current.srcObject as MediaStream).getTracks();
         tracks.forEach((track) => track.stop());
       }
     };
@@ -69,37 +51,24 @@ export default function CameraPage() {
 
   return (
     <main className="flex flex-col items-center p-4 h-full">
-      <h1 className="text-2xl font-bold mb-4">카메라 촬영</h1>
+      <h1 className="text-2xl font-bold mb-4">
+        카메라 촬영 (Remix + react-router7 스타일)
+      </h1>
 
-      <section className="mb-4 w-full max-w-md rounded-md border border-gray-300 p-2 bg-gray-50">
-        <h2 className="font-semibold mb-1">User Agent 정보</h2>
-        <p className="text-sm break-words">
-          {userAgent || '정보를 불러오는 중...'}
-        </p>
-      </section>
-
-      {/* 모바일 여부와 관계없이 항상 메시지 출력 */}
-      <p className="text-blue-600 mb-2">현재 브라우저 환경 상태입니다</p>
-
-      {loading && <p>카메라를 준비 중입니다...</p>}
       {error && <p className="text-red-600 mb-2">{error}</p>}
+      {!hasCamera && !error && <p>카메라를 준비 중입니다...</p>}
 
-      {hasCamera && (
-        <>
-          <video
-            ref={videoRef}
-            autoPlay
-            playsInline
-            muted
-            className="w-full max-w-md rounded-md border border-gray-300"
-            style={{ display: 'block', width: '100%', height: 'auto' }} // 보이는지 확실히 체크
-          />
+      <video
+        ref={videoRef}
+        autoPlay
+        playsInline
+        muted
+        className="w-full max-w-md rounded-md border border-gray-300"
+      />
 
-          <Button onClick={capturePhoto} className="mt-4">
-            사진 찍기
-          </Button>
-        </>
-      )}
+      <Button onClick={capturePhoto} disabled={!hasCamera} className="mt-4">
+        사진 찍기
+      </Button>
 
       {capturedImage && (
         <section className="mt-6 w-full max-w-md">
