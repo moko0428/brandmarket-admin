@@ -25,7 +25,7 @@ export const links: Route.LinksFunction = () => [
 
 export function Layout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="en">
+    <html lang="ko" className="">
       <head>
         <meta charSet="utf-8" />
         <link rel="manifest" href="/manifest.webmanifest" />
@@ -35,7 +35,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
         <Meta />
         <Links />
       </head>
-      <body>
+      <body className="max-w-2xl mx-auto h-screen">
         {children}
         <ScrollRestoration />
         <Scripts />
