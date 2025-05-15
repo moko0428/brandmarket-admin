@@ -68,7 +68,7 @@ export default function PwaCamera() {
     setOcrTexts(null);
     setError(null);
     try {
-      const response = await fetch('/features/ocr/api', {
+      const response = await fetch('/features/ocr/api/route', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ imageBase64: imageUrl }),
