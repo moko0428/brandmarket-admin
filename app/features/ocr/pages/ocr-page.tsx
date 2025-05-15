@@ -8,7 +8,17 @@ export default function CameraPage() {
   const [capturedImage, setCapturedImage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
+  // ✅ 모바일 디바이스 여부 확인
+  const isMobile =
+    typeof navigator !== 'undefined' &&
+    /Mobi|Android|iPhone|iPad/i.test(navigator.userAgent);
+
   useEffect(() => {
+    if (!isMobile) {
+      setError('이 기능은 모바일 환경에서만 사용할 수 있습니다.');
+      return;
+    }
+
     async function startCamera() {
       try {
         const stream = await navigator.mediaDevices.getUserMedia({
@@ -23,6 +33,7 @@ export default function CameraPage() {
         console.error(err);
       }
     }
+
     startCamera();
 
     return () => {
@@ -31,7 +42,7 @@ export default function CameraPage() {
         tracks.forEach((track) => track.stop());
       }
     };
-  }, []);
+  }, [isMobile]);
 
   const capturePhoto = () => {
     if (!videoRef.current || !canvasRef.current) return;
@@ -51,9 +62,7 @@ export default function CameraPage() {
 
   return (
     <main className="flex flex-col items-center p-4 h-full">
-      <h1 className="text-2xl font-bold mb-4">
-        카메라 촬영 (Remix + react-router7 스타일)
-      </h1>
+      <h1 className="text-2xl font-bold mb-4">카메라 촬영</h1>
 
       {error && <p className="text-red-600 mb-2">{error}</p>}
       {!hasCamera && !error && <p>카메라를 준비 중입니다...</p>}
