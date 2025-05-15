@@ -3,9 +3,9 @@
 //   // vision.ts
 
 //   // JSON 키 파일 경로 (자신의 위치로 수정)
-//   const client = new vision.ImageAnnotatorClient({
-//     keyFilename: process.env.GOOGLE_APPLICATION_CREDENTIALS,
-//   });
+// const client = new vision.ImageAnnotatorClient({
+//   keyFilename: process.env.GOOGLE_APPLICATION_CREDENTIALS,
+// });
 
 //   async function detectTextFromImage(imagePath: string) {
 //     const [result] = await client.textDetection(imagePath);

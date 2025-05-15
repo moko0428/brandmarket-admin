@@ -6,7 +6,9 @@ export default function PwaCamera() {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const [hasCamera, setHasCamera] = useState(false);
   const [capturedImage, setCapturedImage] = useState<string | null>(null);
+  const [ocrText, setOcrText] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [loading, setLoading] = useState(false);
 
   const isMobile =
     typeof navigator !== 'undefined' &&
@@ -46,7 +48,7 @@ export default function PwaCamera() {
     };
   }, [isMobile]);
 
-  const capturePhoto = () => {
+  const capturePhoto = async () => {
     if (!videoRef.current || !canvasRef.current) return;
 
     const video = videoRef.current;
@@ -60,6 +62,29 @@ export default function PwaCamera() {
 
     const imageUrl = canvas.toDataURL('image/png');
     setCapturedImage(imageUrl);
+
+    // OCR API 호출
+    setLoading(true);
+    setOcrText(null);
+    setError(null);
+    try {
+      const response = await fetch('/ocr', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ imageBase64: imageUrl }),
+      });
+      const data = await response.json();
+      if (response.ok) {
+        setOcrText(data.text);
+      } else {
+        setError(data.error || 'OCR 처리 중 오류가 발생했습니다.');
+      }
+    } catch (e) {
+      setError('서버와 통신 중 오류가 발생했습니다.');
+      console.error(e);
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
@@ -80,10 +105,10 @@ export default function PwaCamera() {
           />
           <Button
             onClick={capturePhoto}
-            disabled={!hasCamera}
+            disabled={!hasCamera || loading}
             className="mt-4 w-full max-w-md"
           >
-            사진 찍기
+            {loading ? '처리 중...' : '사진 찍기'}
           </Button>
         </>
       )}
@@ -96,6 +121,12 @@ export default function PwaCamera() {
             alt="Captured"
             className="w-full rounded-md border border-gray-300 shadow"
           />
+          {loading && <p>OCR 처리 중...</p>}
+          {ocrText && (
+            <pre className="whitespace-pre-wrap bg-gray-100 p-2 mt-2 rounded text-sm text-gray-700">
+              {ocrText}
+            </pre>
+          )}
         </section>
       )}
 
