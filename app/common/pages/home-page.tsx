@@ -1,3 +1,5 @@
+import { Link } from 'react-router';
+
 const cloth = [
   {
     id: 1,
@@ -20,6 +22,7 @@ const cloth = [
 export default function HomePage() {
   return (
     <div className="p-4">
+      <Link to="/ocr">OCR</Link>
       <table className="w-full border-collapse">
         <thead>
           <tr className="bg-gray-100">
