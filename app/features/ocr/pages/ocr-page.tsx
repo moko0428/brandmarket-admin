@@ -7,8 +7,14 @@ export default function CameraPage() {
   const [hasCamera, setHasCamera] = useState(false);
   const [capturedImage, setCapturedImage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [loading, setLoading] = useState(true); // 로딩 상태 추가
 
   useEffect(() => {
+    if (typeof navigator === 'undefined' || !navigator.mediaDevices) {
+      setError('브라우저가 카메라를 지원하지 않습니다.');
+      return;
+    }
+
     async function startCamera() {
       try {
         const stream = await navigator.mediaDevices.getUserMedia({
@@ -21,13 +27,17 @@ export default function CameraPage() {
       } catch (err) {
         setError('카메라 권한이 없거나 사용할 수 없습니다.');
         console.error(err);
+      } finally {
+        setLoading(false);
       }
     }
+
     startCamera();
 
     return () => {
-      if (videoRef.current?.srcObject) {
-        const tracks = (videoRef.current.srcObject as MediaStream).getTracks();
+      const video = videoRef.current;
+      if (video?.srcObject) {
+        const tracks = (video.srcObject as MediaStream).getTracks();
         tracks.forEach((track) => track.stop());
       }
     };
@@ -51,24 +61,26 @@ export default function CameraPage() {
 
   return (
     <main className="flex flex-col items-center p-4 h-full">
-      <h1 className="text-2xl font-bold mb-4">
-        카메라 촬영 (Remix + react-router7 스타일)
-      </h1>
+      <h1 className="text-2xl font-bold mb-4">카메라 촬영</h1>
 
+      {loading && <p>카메라를 준비 중입니다...</p>}
       {error && <p className="text-red-600 mb-2">{error}</p>}
-      {!hasCamera && !error && <p>카메라를 준비 중입니다...</p>}
 
-      <video
-        ref={videoRef}
-        autoPlay
-        playsInline
-        muted
-        className="w-full max-w-md rounded-md border border-gray-300"
-      />
+      {!error && hasCamera && (
+        <>
+          <video
+            ref={videoRef}
+            autoPlay
+            playsInline
+            muted
+            className="w-full max-w-md rounded-md border border-gray-300"
+          />
 
-      <Button onClick={capturePhoto} disabled={!hasCamera} className="mt-4">
-        사진 찍기
-      </Button>
+          <Button onClick={capturePhoto} className="mt-4">
+            사진 찍기
+          </Button>
+        </>
+      )}
 
       {capturedImage && (
         <section className="mt-6 w-full max-w-md">
