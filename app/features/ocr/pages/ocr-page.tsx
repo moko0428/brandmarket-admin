@@ -17,12 +17,20 @@ export default function CameraPage() {
 
     async function startCamera() {
       try {
-        const stream = await navigator.mediaDevices.getUserMedia({
-          video: { facingMode: 'environment' }, // 후면 카메라 요청
-        });
+        const constraints = {
+          video: { facingMode: 'environment' }, // 모바일용 후면 카메라 우선
+        };
+
+        // 데스크탑일 경우 facingMode 제거
+        if (!/Mobi|Android|iPhone|iPad/i.test(navigator.userAgent)) {
+          constraints.video = { facingMode: 'environment' };
+        }
+
+        const stream = await navigator.mediaDevices.getUserMedia(constraints);
 
         if (videoRef.current) {
           videoRef.current.srcObject = stream;
+          await videoRef.current.play(); // play() 명시적으로 호출
           setHasCamera(true);
         }
       } catch (err) {
@@ -84,7 +92,9 @@ export default function CameraPage() {
             playsInline
             muted
             className="w-full max-w-md rounded-md border border-gray-300"
+            style={{ display: 'block', width: '100%', height: 'auto' }} // 보이는지 확실히 체크
           />
+
           <Button onClick={capturePhoto} className="mt-4">
             사진 찍기
           </Button>
