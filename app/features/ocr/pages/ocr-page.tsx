@@ -12,7 +12,7 @@ export default function CameraPage() {
   // ✅ 모바일 디바이스 여부 확인
   const isMobile =
     typeof navigator !== 'undefined' &&
-    /Mobi|Android/i.test(navigator.userAgent);
+    /Mobi|Android|iPhone|iPad/i.test(navigator.userAgent);
 
   useEffect(() => {
     if (!isMobile) {
@@ -68,12 +68,17 @@ export default function CameraPage() {
     ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
 
     const imageUrl = canvas.toDataURL('image/png');
+    console.log(imageUrl);
     setCapturedImage(imageUrl);
   };
 
   return (
     <main className="flex flex-col items-center p-4 h-full">
       <h1 className="text-2xl font-bold mb-4">카메라 촬영</h1>
+
+      {!isMobile && (
+        <p className="text-blue-600 mb-2">현재 브라우저 환경 상태입니다</p>
+      )}
 
       {loading && <p>카메라를 준비 중입니다...</p>}
       {error && <p className="text-red-600 mb-2">{error}</p>}
