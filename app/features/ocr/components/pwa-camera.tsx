@@ -6,7 +6,7 @@ export default function PwaCamera() {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const [hasCamera, setHasCamera] = useState(false);
   const [capturedImage, setCapturedImage] = useState<string | null>(null);
-  const [ocrText, setOcrText] = useState<string | null>(null);
+  const [ocrTexts, setOcrTexts] = useState<string[] | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
 
@@ -65,7 +65,7 @@ export default function PwaCamera() {
 
     // OCR API 호출
     setLoading(true);
-    setOcrText(null);
+    setOcrTexts(null);
     setError(null);
     try {
       const response = await fetch('/ocr', {
@@ -75,7 +75,7 @@ export default function PwaCamera() {
       });
       const data = await response.json();
       if (response.ok) {
-        setOcrText(data.text);
+        setOcrTexts(data.texts || []);
       } else {
         setError(data.error || 'OCR 처리 중 오류가 발생했습니다.');
       }
@@ -122,10 +122,12 @@ export default function PwaCamera() {
             className="w-full rounded-md border border-gray-300 shadow"
           />
           {loading && <p>OCR 처리 중...</p>}
-          {ocrText && (
-            <pre className="whitespace-pre-wrap bg-gray-100 p-2 mt-2 rounded text-sm text-gray-700">
-              {ocrText}
-            </pre>
+          {ocrTexts && (
+            <section className="mt-2 bg-gray-100 p-2 rounded max-h-64 overflow-auto text-sm text-gray-700">
+              {ocrTexts.map((text, i) => (
+                <p key={i}>{text}</p>
+              ))}
+            </section>
           )}
         </section>
       )}
