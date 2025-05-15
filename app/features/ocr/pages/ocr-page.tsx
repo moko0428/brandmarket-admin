@@ -78,7 +78,7 @@ export default function CameraPage() {
       {loading && <p>카메라를 준비 중입니다...</p>}
       {error && <p className="text-red-600 mb-2">{error}</p>}
 
-      {!error && hasCamera && (
+      {hasCamera && (
         <>
           <video
             ref={videoRef}
