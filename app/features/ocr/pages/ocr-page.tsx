@@ -19,13 +19,17 @@ export default function CameraPage() {
       setError('이 기능은 모바일 환경에서만 사용할 수 있습니다.');
       setLoading(false);
       return;
-    }
-
-    if (typeof navigator === 'undefined' || !navigator.mediaDevices) {
-      setError('브라우저가 카메라를 지원하지 않습니다.');
+    } else {
+      setError('모바일 환경입니다.');
       setLoading(false);
       return;
     }
+
+    // if (typeof navigator === 'undefined' || !navigator.mediaDevices) {
+    //   setError('브라우저가 카메라를 지원하지 않습니다.');
+    //   setLoading(false);
+    //   return;
+    // }
 
     async function startCamera() {
       try {
