@@ -7,11 +7,23 @@ export default function CameraPage() {
   const [hasCamera, setHasCamera] = useState(false);
   const [capturedImage, setCapturedImage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [loading, setLoading] = useState(true); // 로딩 상태 추가
+  const [loading, setLoading] = useState(true);
+
+  // ✅ 모바일 디바이스 여부 확인
+  const isMobile =
+    typeof navigator !== 'undefined' &&
+    /Mobi|Android/i.test(navigator.userAgent);
 
   useEffect(() => {
+    if (!isMobile) {
+      setError('이 기능은 모바일 환경에서만 사용할 수 있습니다.');
+      setLoading(false);
+      return;
+    }
+
     if (typeof navigator === 'undefined' || !navigator.mediaDevices) {
       setError('브라우저가 카메라를 지원하지 않습니다.');
+      setLoading(false);
       return;
     }
 
@@ -41,7 +53,7 @@ export default function CameraPage() {
         tracks.forEach((track) => track.stop());
       }
     };
-  }, []);
+  }, [isMobile]);
 
   const capturePhoto = () => {
     if (!videoRef.current || !canvasRef.current) return;
@@ -75,7 +87,6 @@ export default function CameraPage() {
             muted
             className="w-full max-w-md rounded-md border border-gray-300"
           />
-
           <Button onClick={capturePhoto} className="mt-4">
             사진 찍기
           </Button>
