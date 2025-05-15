@@ -15,49 +15,31 @@ export default function CameraPage() {
     /Mobi|Android|iPhone|iPad/i.test(navigator.userAgent);
 
   useEffect(() => {
-    if (!isMobile) {
-      setError('이 기능은 모바일 환경에서만 사용할 수 있습니다.');
-      setLoading(false);
-      return;
-    } else {
-      setError('모바일 환경입니다.');
-      setLoading(false);
-      return;
-    }
-
-    // if (typeof navigator === 'undefined' || !navigator.mediaDevices) {
-    //   setError('브라우저가 카메라를 지원하지 않습니다.');
-    //   setLoading(false);
-    //   return;
-    // }
+    console.log('isMobile:', isMobile);
+    console.log('navigator.userAgent:', navigator.userAgent);
 
     async function startCamera() {
       try {
         const stream = await navigator.mediaDevices.getUserMedia({
           video: { facingMode: 'environment' },
         });
+        console.log('stream:', stream);
+
         if (videoRef.current) {
           videoRef.current.srcObject = stream;
+          console.log('video element:', videoRef.current);
           setHasCamera(true);
         }
       } catch (err) {
+        console.error('getUserMedia error:', err);
         setError('카메라 권한이 없거나 사용할 수 없습니다.');
-        console.error(err);
       } finally {
         setLoading(false);
       }
     }
 
     startCamera();
-
-    return () => {
-      const video = videoRef.current;
-      if (video?.srcObject) {
-        const tracks = (video.srcObject as MediaStream).getTracks();
-        tracks.forEach((track) => track.stop());
-      }
-    };
-  }, [isMobile]);
+  }, []);
 
   const capturePhoto = () => {
     if (!videoRef.current || !canvasRef.current) return;
