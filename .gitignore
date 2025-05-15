@@ -7,3 +7,5 @@
 
 # Google Cloud
 secrets/
+
+.env
