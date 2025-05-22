@@ -6,7 +6,12 @@ export default function PwaCamera() {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const [hasCamera, setHasCamera] = useState(false);
   const [capturedImage, setCapturedImage] = useState<string | null>(null);
-  const [imageInfo, setImageInfo] = useState<string | null>(null);
+  const [imageInfo, setImageInfo] = useState<{
+    width: number;
+    height: number;
+    timestamp: string;
+    size: string;
+  } | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   const isMobile =
@@ -73,7 +78,12 @@ export default function PwaCamera() {
     const base64Data = imageUrl.split(',')[1];
     const approximateSize = Math.round((base64Data.length * 0.75) / 1024); // KB 단위
 
-    setImageInfo(imageUrl);
+    setImageInfo({
+      width: canvas.width,
+      height: canvas.height,
+      timestamp: timestamp,
+      size: `약 ${approximateSize} KB`,
+    });
   };
 
   const retakePhoto = () => {
@@ -150,7 +160,23 @@ export default function PwaCamera() {
           {imageInfo && (
             <div className="mt-4 bg-gray-50 p-4 rounded-md border border-gray-200">
               <h3 className="font-medium mb-2">이미지 정보</h3>
-              <div>{imageInfo}</div>
+              <ul className="text-sm space-y-1">
+                <li>
+                  <span className="font-medium">크기:</span> {imageInfo.width} x{' '}
+                  {imageInfo.height} 픽셀
+                </li>
+                <li>
+                  <span className="font-medium">파일 크기:</span>{' '}
+                  {imageInfo.size}
+                </li>
+                <li>
+                  <span className="font-medium">촬영 시간:</span>{' '}
+                  {imageInfo.timestamp}
+                </li>
+                <li>
+                  <span className="font-medium">형식:</span> PNG
+                </li>
+              </ul>
             </div>
           )}
 
