@@ -14,6 +14,7 @@ export default function OcrPage() {
   const videoRef = useRef<HTMLVideoElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const [hasCamera, setHasCamera] = useState(false);
+  const [cameraLoading, setCameraLoading] = useState(true);
 
   // Jotai atoms
   const [originalImage, setOriginalImage] = useAtom(originalImageAtom);
@@ -23,22 +24,80 @@ export default function OcrPage() {
   const [error, setError] = useAtom(errorAtom);
   const processImage = useSetAtom(processImageAtom);
 
+  // 모바일 환경 체크
+  const isMobile =
+    typeof navigator !== 'undefined' &&
+    /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(
+      navigator.userAgent
+    );
+
   // 카메라 시작
   useEffect(() => {
+    // 비모바일 환경 체크
+    if (!isMobile) {
+      setCameraLoading(false);
+      setError('이 기능은 모바일 환경에서만 사용할 수 있습니다.');
+      return;
+    }
+
+    let cameraTimeout: NodeJS.Timeout;
+    let stream: MediaStream | null = null;
+
     async function startCamera() {
+      setCameraLoading(true);
+      setError(null);
+
+      // 카메라 초기화 타임아웃 설정 (10초)
+      cameraTimeout = setTimeout(() => {
+        setCameraLoading(false);
+        setError(
+          '카메라 초기화 시간이 초과되었습니다. 페이지를 새로고침하거나 브라우저 설정에서 카메라 권한을 확인해주세요.'
+        );
+      }, 10000);
+
       try {
-        const stream = await navigator.mediaDevices.getUserMedia({
-          video: { facingMode: 'environment' },
+        // 후면 카메라 우선 사용
+        stream = await navigator.mediaDevices.getUserMedia({
+          video: {
+            facingMode: 'environment',
+            width: { ideal: 1280 },
+            height: { ideal: 720 },
+          },
           audio: false,
         });
 
         if (videoRef.current) {
           videoRef.current.srcObject = stream;
-          setHasCamera(true);
+
+          // 비디오가 로드되면 카메라 준비 완료
+          videoRef.current.onloadedmetadata = () => {
+            clearTimeout(cameraTimeout);
+            setCameraLoading(false);
+            setHasCamera(true);
+          };
         }
       } catch (err) {
-        setError('카메라 접근이 차단되었거나 사용할 수 없습니다.');
-        console.error('Camera error:', err);
+        clearTimeout(cameraTimeout);
+        setCameraLoading(false);
+
+        // 오류 유형에 따른 메시지 설정
+        if (err instanceof DOMException) {
+          if (err.name === 'NotAllowedError') {
+            setError(
+              '카메라 접근 권한이 거부되었습니다. 브라우저 설정에서 카메라 권한을 허용해주세요.'
+            );
+          } else if (err.name === 'NotFoundError') {
+            setError(
+              '카메라를 찾을 수 없습니다. 장치에 카메라가 있는지 확인해주세요.'
+            );
+          } else {
+            setError(`카메라 오류: ${err.message}`);
+          }
+        } else {
+          setError('카메라 접근 중 알 수 없는 오류가 발생했습니다.');
+        }
+
+        console.error('카메라 오류:', err);
       }
     }
 
@@ -46,13 +105,20 @@ export default function OcrPage() {
 
     // 정리 함수
     return () => {
-      const video = videoRef.current;
-      if (video?.srcObject) {
-        const tracks = (video.srcObject as MediaStream).getTracks();
-        tracks.forEach((track) => track.stop());
+      clearTimeout(cameraTimeout);
+
+      // 스트림 정리
+      if (stream) {
+        stream.getTracks().forEach((track) => track.stop());
+      }
+
+      // 비디오 요소 정리
+      if (videoRef.current?.srcObject) {
+        const videoStream = videoRef.current.srcObject as MediaStream;
+        videoStream.getTracks().forEach((track) => track.stop());
       }
     };
-  }, [setError]);
+  }, [isMobile, setError]);
 
   // 사진 촬영
   const capturePhoto = async () => {
@@ -151,7 +217,23 @@ export default function OcrPage() {
       {!originalImage ? (
         <section className="w-full max-w-md">
           <div className="relative aspect-[3/4] bg-gray-100 rounded-md overflow-hidden mb-4">
-            {hasCamera ? (
+            {!isMobile ? (
+              <div className="flex items-center justify-center h-full">
+                <p className="text-center px-4">
+                  이 기능은 모바일 환경에서만 사용할 수 있습니다.
+                  <br />
+                  스마트폰이나 태블릿에서 접속해주세요.
+                </p>
+              </div>
+            ) : cameraLoading ? (
+              <div className="flex items-center justify-center h-full flex-col">
+                <div className="w-10 h-10 border-4 border-blue-500 border-t-transparent rounded-full animate-spin mb-2"></div>
+                <p>카메라를 불러오는 중...</p>
+                <p className="text-xs mt-2 text-gray-500">
+                  카메라 권한을 요청하면 '허용'을 눌러주세요
+                </p>
+              </div>
+            ) : hasCamera ? (
               <video
                 ref={videoRef}
                 autoPlay
@@ -160,7 +242,11 @@ export default function OcrPage() {
               />
             ) : (
               <div className="flex items-center justify-center h-full">
-                <p>카메라를 불러오는 중...</p>
+                <p className="text-center px-4">
+                  카메라를 사용할 수 없습니다.
+                  <br />
+                  브라우저 설정에서 카메라 권한을 확인해주세요.
+                </p>
               </div>
             )}
           </div>
