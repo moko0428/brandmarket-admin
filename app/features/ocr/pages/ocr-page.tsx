@@ -1,37 +1,30 @@
 import { useEffect, useRef, useState } from 'react';
 import { Button } from '~/common/components/ui/button';
-import { detectText } from '~/features/product/api/ocr';
 import { useAtom, useSetAtom } from 'jotai';
 import {
   originalImageAtom,
   compressedImageAtom,
   processImageAtom,
   ocrResultAtom,
+  loadingAtom,
+  errorAtom,
 } from '../atoms/image-atom';
 
 export default function OcrPage() {
   const videoRef = useRef<HTMLVideoElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const [hasCamera, setHasCamera] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const [loading, setLoading] = useState(false);
 
   // Jotai atoms
-  const [originalImage] = useAtom(originalImageAtom);
+  const [originalImage, setOriginalImage] = useAtom(originalImageAtom);
   const [compressedImage] = useAtom(compressedImageAtom);
-  const processImage = useSetAtom(processImageAtom);
   const [ocrResult, setOcrResult] = useAtom(ocrResultAtom);
+  const [loading, setLoading] = useAtom(loadingAtom);
+  const [error, setError] = useAtom(errorAtom);
+  const processImage = useSetAtom(processImageAtom);
 
-  const isMobile =
-    typeof navigator !== 'undefined' &&
-    /Mobi|Android|iPhone|iPad/i.test(navigator.userAgent);
-
+  // 카메라 시작
   useEffect(() => {
-    if (!isMobile) {
-      setError('삐-빅! 이 기능은 모바일 환경에서만 사용할 수 있습니다.');
-      return;
-    }
-
     async function startCamera() {
       try {
         const stream = await navigator.mediaDevices.getUserMedia({
@@ -44,13 +37,14 @@ export default function OcrPage() {
           setHasCamera(true);
         }
       } catch (err) {
-        setError('삐-빅! 카메라 접근이 차단되었거나 사용할 수 없습니다.');
+        setError('카메라 접근이 차단되었거나 사용할 수 없습니다.');
         console.error('Camera error:', err);
       }
     }
 
     startCamera();
 
+    // 정리 함수
     return () => {
       const video = videoRef.current;
       if (video?.srcObject) {
@@ -58,48 +52,84 @@ export default function OcrPage() {
         tracks.forEach((track) => track.stop());
       }
     };
-  }, [isMobile]);
+  }, [setError]);
 
+  // 사진 촬영
   const capturePhoto = async () => {
     if (!videoRef.current || !canvasRef.current) return;
 
     const video = videoRef.current;
     const canvas = canvasRef.current;
     const ctx = canvas.getContext('2d');
-    if (!ctx) return;
 
-    canvas.width = video.videoWidth;
-    canvas.height = video.videoHeight;
-    ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+    // 비디오 크기 가져오기
+    const videoWidth = video.videoWidth;
+    const videoHeight = video.videoHeight;
 
-    const imageUrl = canvas.toDataURL('image/png');
+    // 캔버스 크기 설정
+    canvas.width = videoWidth;
+    canvas.height = videoHeight;
 
-    // 원본 이미지 저장 및 압축 처리
-    await processImage(imageUrl);
+    // 비디오 프레임을 캔버스에 그리기
+    ctx?.drawImage(video, 0, 0, videoWidth, videoHeight);
+
+    // 캔버스에서 이미지 데이터 가져오기
+    const imageData = canvas.toDataURL('image/jpeg');
+
+    // 이미지 압축 처리
+    await processImage(imageData);
   };
 
+  // 다시 촬영
   const retakePhoto = () => {
-    // 이미지와 OCR 결과 초기화
-    processImage(null);
+    setOriginalImage(null);
     setOcrResult(null);
+    setError(null);
   };
 
-  // OCR 처리 함수 - URL 리다이렉션 대신 직접 API 호출
+  // OCR 처리
   const processOcr = async () => {
     if (!compressedImage) return;
 
     setLoading(true);
-    try {
-      // Base64 이미지 데이터 추출
-      const base64Data = compressedImage.replace(
-        /^data:image\/\w+;base64,/,
-        ''
-      );
-      const buffer = Buffer.from(base64Data, 'base64');
+    setError(null);
 
-      // OCR 처리
-      const [result] = await detectText(buffer);
-      setOcrResult(result);
+    try {
+      // Base64 → Blob 변환
+      const base64Data = compressedImage.split(',')[1];
+      const byteCharacters = atob(base64Data);
+      const byteArrays = [];
+
+      for (let offset = 0; offset < byteCharacters.length; offset += 512) {
+        const slice = byteCharacters.slice(offset, offset + 512);
+        const byteNumbers = new Array(slice.length);
+
+        for (let i = 0; i < slice.length; i++) {
+          byteNumbers[i] = slice.charCodeAt(i);
+        }
+
+        const byteArray = new Uint8Array(byteNumbers);
+        byteArrays.push(byteArray);
+      }
+
+      const blob = new Blob(byteArrays, { type: 'image/jpeg' });
+
+      // FormData 생성
+      const formData = new FormData();
+      formData.append('image', blob, 'image.jpg');
+
+      // API 호출
+      const response = await fetch('/api/ocr', {
+        method: 'POST',
+        body: formData,
+      });
+
+      if (!response.ok) {
+        throw new Error('서버 오류가 발생했습니다.');
+      }
+
+      const data = await response.json();
+      setOcrResult(data.result);
     } catch (error) {
       console.error('OCR 처리 오류:', error);
       setError('OCR 처리 중 오류가 발생했습니다.');
@@ -109,69 +139,49 @@ export default function OcrPage() {
   };
 
   return (
-    <main className="flex flex-col items-center p-4 h-full">
-      <h1 className="text-2xl font-bold mb-4">카메라</h1>
+    <main className="p-4 flex flex-col items-center">
+      <h1 className="text-xl font-bold mb-4">OCR 텍스트 인식</h1>
 
-      {error && <p className="text-red-600 mb-4">{error}</p>}
-      {!hasCamera && !error && <p>카메라를 준비 중입니다...</p>}
-
-      {!error && !originalImage && (
-        <>
-          <div className="relative w-full max-w-md">
-            <video
-              ref={videoRef}
-              autoPlay
-              playsInline
-              muted
-              className="w-full rounded-md border border-gray-300 bg-black"
-            />
-            <div className="absolute bottom-4 left-0 right-0 flex justify-center">
-              <Button
-                onClick={capturePhoto}
-                disabled={!hasCamera}
-                className="px-6 py-3 rounded-full bg-white text-black border border-gray-300 hover:bg-gray-100"
-              >
-                <span className="flex items-center justify-center w-12 h-12 rounded-full border-4 border-black">
-                  <span className="sr-only">사진 찍기</span>
-                </span>
-              </Button>
-            </div>
-          </div>
-          <p className="mt-4 text-sm text-gray-500">
-            카메라를 영수증에 맞춰 사진을 찍으세요.
-          </p>
-        </>
+      {error && (
+        <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded mb-4">
+          {error}
+        </div>
       )}
 
-      {originalImage && (
+      {!originalImage ? (
+        <section className="w-full max-w-md">
+          <div className="relative aspect-[3/4] bg-gray-100 rounded-md overflow-hidden mb-4">
+            {hasCamera ? (
+              <video
+                ref={videoRef}
+                autoPlay
+                playsInline
+                className="absolute inset-0 w-full h-full object-cover"
+              />
+            ) : (
+              <div className="flex items-center justify-center h-full">
+                <p>카메라를 불러오는 중...</p>
+              </div>
+            )}
+          </div>
+
+          <Button
+            onClick={capturePhoto}
+            className="w-full"
+            disabled={!hasCamera}
+          >
+            사진 찍기
+          </Button>
+        </section>
+      ) : (
         <section className="w-full max-w-md">
           <h2 className="font-semibold mb-2">촬영된 사진</h2>
           <div className="relative">
             <img
-              src={originalImage}
+              src={compressedImage || originalImage}
               alt="촬영된 이미지"
               className="w-full rounded-md border border-gray-300 shadow"
             />
-            <Button
-              onClick={retakePhoto}
-              className="absolute top-2 right-2 bg-white text-black p-2 rounded-full shadow hover:bg-gray-100"
-            >
-              <svg
-                xmlns="http://www.w3.org/2000/svg"
-                width="24"
-                height="24"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="2"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-              >
-                <path d="M21 16V8a2 2 0 0 0-2-2H5a2 2 0 0 0-2 2v8a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2z"></path>
-                <line x1="9" y1="10" x2="15" y2="10"></line>
-              </svg>
-              <span className="sr-only">다시 찍기</span>
-            </Button>
           </div>
 
           {compressedImage && (
@@ -193,7 +203,7 @@ export default function OcrPage() {
             <div className="mt-4 bg-gray-50 p-4 rounded-md border border-gray-200">
               <h3 className="font-medium mb-2">OCR 결과</h3>
               <div>
-                {ocrResult.description || '텍스트를 인식하지 못했습니다.'}
+                {ocrResult[0]?.description || '텍스트를 인식하지 못했습니다.'}
               </div>
             </div>
           )}
