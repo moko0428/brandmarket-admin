@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { Button } from '~/common/components/ui/button';
 import { useAtom, useSetAtom } from 'jotai';
+import loadImage from 'blueimp-load-image';
 import {
   originalImageAtom,
   compressedImageAtom,
@@ -83,9 +84,7 @@ export default function OcrPage() {
         // 오류 유형에 따른 메시지 설정
         if (err instanceof DOMException) {
           if (err.name === 'NotAllowedError') {
-            setError(
-              '카메라 접근 권한이 거부되었습니다. 브라우저 설정에서 카메라 권한을 허용해주세요.'
-            );
+            setError('카메라 접근 권한이 거부되었습니다.');
           } else if (err.name === 'NotFoundError') {
             setError(
               '카메라를 찾을 수 없습니다. 장치에 카메라가 있는지 확인해주세요.'
@@ -120,6 +119,47 @@ export default function OcrPage() {
     };
   }, [isMobile, setError]);
 
+  // blueimp-load-image를 사용한 이미지 처리 함수
+  const processImageWithLoadImage = async (
+    canvas: HTMLCanvasElement
+  ): Promise<string> => {
+    return new Promise((resolve, reject) => {
+      // Canvas에서 Blob 생성
+      canvas.toBlob(
+        async (blob) => {
+          if (!blob) {
+            reject(new Error('이미지 변환에 실패했습니다.'));
+            return;
+          }
+
+          try {
+            // blueimp-load-image 라이브러리로 이미지 처리
+            const result = await loadImage(blob, {
+              maxWidth: 800, // 최대 너비
+              maxHeight: 800, // 최대 높이
+              canvas: true, // Canvas 사용
+              orientation: true, // EXIF 방향 자동 수정
+              meta: true, // 메타데이터 보존
+              imageSmoothingEnabled: true, // 이미지 스무딩
+              imageSmoothingQuality: 'high', // 스무딩 품질
+            });
+
+            // 처리된 Canvas에서 DataURL 추출
+            const processedCanvas = result.image as HTMLCanvasElement;
+            const dataUrl = processedCanvas.toDataURL('image/jpeg', 0.7);
+
+            resolve(dataUrl);
+          } catch (error) {
+            console.error('이미지 처리 오류:', error);
+            reject(error);
+          }
+        },
+        'image/jpeg',
+        0.9
+      );
+    });
+  };
+
   // 사진 촬영
   const capturePhoto = async () => {
     if (!videoRef.current || !canvasRef.current) return;
@@ -139,11 +179,19 @@ export default function OcrPage() {
     // 비디오 프레임을 캔버스에 그리기
     ctx?.drawImage(video, 0, 0, videoWidth, videoHeight);
 
-    // 캔버스에서 이미지 데이터 가져오기
-    const imageData = canvas.toDataURL('image/jpeg');
+    try {
+      // blueimp-load-image로 이미지 처리
+      const processedImageData = await processImageWithLoadImage(canvas);
 
-    // 이미지 압축 처리
-    await processImage(imageData);
+      // 원본 이미지 저장
+      setOriginalImage(canvas.toDataURL('image/jpeg'));
+
+      // 이미지 압축 처리 (이미 blueimp-load-image에서 처리됨)
+      await processImage(processedImageData);
+    } catch (error) {
+      console.error('이미지 캡처 오류:', error);
+      setError('이미지를 처리하는 중 오류가 발생했습니다.');
+    }
   };
 
   // 다시 촬영
@@ -153,7 +201,7 @@ export default function OcrPage() {
     setError(null);
   };
 
-  // OCR 처리
+  // OCR 처리 - blueimp-load-image를 사용한 Blob 생성
   const processOcr = async () => {
     if (!compressedImage) return;
 
@@ -161,26 +209,27 @@ export default function OcrPage() {
     setError(null);
 
     try {
-      // Base64 → Blob 변환
-      const base64Data = compressedImage.split(',')[1];
-      const byteCharacters = atob(base64Data);
-      const byteArrays = [];
+      // blueimp-load-image로 이미지를 Blob으로 변환
+      const result = await loadImage(compressedImage, {
+        canvas: true,
+        orientation: true,
+      });
 
-      for (let offset = 0; offset < byteCharacters.length; offset += 512) {
-        const slice = byteCharacters.slice(offset, offset + 512);
-        const byteNumbers = new Array(slice.length);
+      const canvas = result.image as HTMLCanvasElement;
 
-        for (let i = 0; i < slice.length; i++) {
-          byteNumbers[i] = slice.charCodeAt(i);
-        }
+      // Canvas에서 Blob 생성
+      const blob = await new Promise<Blob>((resolve, reject) => {
+        canvas.toBlob(
+          (blob) => {
+            if (!blob) reject(new Error('Blob 생성 실패'));
+            else resolve(blob);
+          },
+          'image/jpeg',
+          0.7
+        );
+      });
 
-        const byteArray = new Uint8Array(byteNumbers);
-        byteArrays.push(byteArray);
-      }
-
-      const blob = new Blob(byteArrays, { type: 'image/jpeg' });
-
-      // FormData 생성
+      // FormData 생성 및 이미지 추가
       const formData = new FormData();
       formData.append('image', blob, 'image.jpg');
 
@@ -191,14 +240,19 @@ export default function OcrPage() {
       });
 
       if (!response.ok) {
-        throw new Error('서버 오류가 발생했습니다.');
+        const errorData = await response.json();
+        throw new Error(errorData.error || '서버 오류가 발생했습니다.');
       }
 
       const data = await response.json();
       setOcrResult(data.result);
     } catch (error) {
       console.error('OCR 처리 오류:', error);
-      setError('OCR 처리 중 오류가 발생했습니다.');
+      setError(
+        error instanceof Error
+          ? error.message
+          : 'OCR 처리 중 오류가 발생했습니다.'
+      );
     } finally {
       setLoading(false);
     }
