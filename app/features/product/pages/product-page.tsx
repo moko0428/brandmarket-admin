@@ -8,8 +8,11 @@ import { detectText } from '../api/ocr';
 // ... existing code ...
 export const loader = async ({ request }: Route.LoaderArgs) => {
   const client = googleVisionClient;
-  const [result] = await detectText('./public/images/영수증.jpg');
-  console.log('result', result.description);
+  const result = await detectText('./public/images/영수증2.png');
+  const [result2] = await detectText('./public/images/영수증2.png');
+  // console.log('result', result2.description)
+  const r = result2.description?.slice(132) || '';
+  return { r };
 };
 
 export const action = async ({ request }: Route.ActionArgs) => {
@@ -35,7 +38,7 @@ export const action = async ({ request }: Route.ActionArgs) => {
 };
 // ... existing code ...
 
-export default function OcrTestUI() {
+export default function OcrTestUI({ loaderData }: Route.ComponentProps) {
   const [imageFileName, setImageFileName] = useState('receipt.jpg');
 
   return (
@@ -75,17 +78,7 @@ export default function OcrTestUI() {
 
         <div className="grid grid-cols-1 gap-4">
           <div className="p-4 bg-white border rounded shadow">
-            <h3 className="text-lg font-medium mb-2">기본 정보</h3>
-            <div className="grid grid-cols-2 gap-2">
-              <div className="font-semibold">매장:</div>
-              <div></div>
-
-              <div className="font-semibold">날짜:</div>
-              <div></div>
-
-              <div className="font-semibold">총 금액:</div>
-              <div></div>
-            </div>
+            {loaderData.r}
           </div>
 
           <div className="p-4 bg-white border rounded shadow">
